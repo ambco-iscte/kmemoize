@@ -6,7 +6,7 @@ plugins {
 }
 
 group = "pt.iscte.ambco"
-version = "0.0.1"
+version = "0.2.1"
 
 allprojects {
     apply(plugin = "org.jetbrains.kotlin.jvm")

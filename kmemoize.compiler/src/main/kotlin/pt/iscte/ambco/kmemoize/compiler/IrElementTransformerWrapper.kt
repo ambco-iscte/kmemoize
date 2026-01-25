@@ -1,14 +1,10 @@
-package pt.iscte.ambco.kmemoize.compiler.common
+package pt.iscte.ambco.kmemoize.compiler
 
 import org.jetbrains.kotlin.backend.common.IrElementTransformerVoidWithContext
 import org.jetbrains.kotlin.backend.common.extensions.IrPluginContext
-import org.jetbrains.kotlin.backend.common.linkage.IrDeserializer
-import org.jetbrains.kotlin.backend.common.serialization.kind
 import org.jetbrains.kotlin.ir.symbols.IrClassSymbol
 import org.jetbrains.kotlin.ir.symbols.IrFunctionSymbol
 import org.jetbrains.kotlin.ir.symbols.IrSimpleFunctionSymbol
-import org.jetbrains.kotlin.ir.util.IdSignature
-import org.jetbrains.kotlin.ir.util.hasTopLevelEqualFqName
 import org.jetbrains.kotlin.name.CallableId
 import org.jetbrains.kotlin.name.ClassId
 import org.jetbrains.kotlin.name.FqName
@@ -27,29 +23,13 @@ open class IrElementTransformerWrapper(
     ): IrSimpleFunctionSymbol =
         context.referenceFunctions(id).firstOrNull(predicate) ?: error("Could not find function: $id")
 
-    protected fun findFunction(
-        packageName: String,
-        className: String,
+    protected fun findKotlinCollectionsFunction(
         functionName: String,
         predicate: (IrFunctionSymbol) -> Boolean = { true }
     ): IrSimpleFunctionSymbol =
         findFunction(
             CallableId(
-                FqName(packageName),
-                FqName(className),
-                Name.identifier(functionName)
-            ),
-            predicate
-        )
-
-    protected fun findFunction(
-        packageName: String,
-        functionName: String,
-        predicate: (IrFunctionSymbol) -> Boolean = { true }
-    ): IrSimpleFunctionSymbol =
-        findFunction(
-            CallableId(
-                FqName(packageName),
+                FqName("kotlin.collections"),
                 Name.identifier(functionName)
             ),
             predicate

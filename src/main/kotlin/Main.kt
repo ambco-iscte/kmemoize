@@ -1,20 +1,20 @@
 import pt.iscte.ambco.kmemoize.api.Memoize
-import kotlin.time.measureTimedValue
+import kotlin.time.measureTime
 
-class Factorial {
+fun factorial(n: Int): Long =
+    if (n == 0) 1L
+    else n * factorial(n - 1)
 
-    @Memoize
-    fun factorial(n: Int): Long =
-        if (n == 0) 1L
-        else n * factorial(n - 1)
-}
+@Memoize
+fun factorialMemoized(n: Int): Long =
+    if (n == 0) 1L
+    else n * factorialMemoized(n - 1)
 
-// Without: Calculated 1! + 2! + ... + 500000! = 1005876315485501977 in 1.845570500s
-// With:
+// Non-memoized time: 1.479797899s
+// Memoized time: 45.616900ms
 fun main() {
-    val f = Factorial()
-    val (value, time) = measureTimedValue {
-        (1 .. 10000).sumOf { f.factorial(it) }
-    }
-    println("Calculated 1! + 2! + ... + 500000! = $value in $time")
+    val time = measureTime { (1 .. 40000).sumOf { factorial(it) } }
+    val timeMemoized = measureTime { (1 .. 40000).sumOf { factorialMemoized(it) } }
+    println("Non-memoized time: $time")
+    println("Memoized time: $timeMemoized")
 }
