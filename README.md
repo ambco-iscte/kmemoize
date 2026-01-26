@@ -9,11 +9,11 @@
 without the need for boilerplate code.
 
 - Functions are tagged with the `@Memoize` annotation.
-- Supports **pure** top-level, member, ~~static, anonymous, and lambda~~ functions :)
+- Supports **pure** top-level, member, local, and anonymous functions :)
 
 <br>
 
-## ℹ️ Example
+##  Example
 ### Help! My Function Is Recursive and I’m Calling It a Lot!
 ```kotlin
 fun factorial(n: Int): Long =

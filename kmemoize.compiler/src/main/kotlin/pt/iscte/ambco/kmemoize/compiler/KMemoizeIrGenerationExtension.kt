@@ -15,12 +15,16 @@ import org.jetbrains.kotlin.ir.builders.declarations.addField
 import org.jetbrains.kotlin.ir.builders.declarations.buildField
 import org.jetbrains.kotlin.ir.declarations.*
 import org.jetbrains.kotlin.ir.expressions.IrExpression
-import org.jetbrains.kotlin.ir.expressions.IrExpressionBody
 import org.jetbrains.kotlin.ir.expressions.IrReturn
 import org.jetbrains.kotlin.ir.symbols.UnsafeDuringIrConstructionAPI
 import org.jetbrains.kotlin.ir.types.IrType
+import org.jetbrains.kotlin.ir.types.classFqName
+import org.jetbrains.kotlin.ir.types.isNothing
+import org.jetbrains.kotlin.ir.types.isNullableNothing
+import org.jetbrains.kotlin.ir.types.isUnit
 import org.jetbrains.kotlin.ir.util.*
 import org.jetbrains.kotlin.name.Name
+import org.jetbrains.kotlin.name.SpecialNames
 import org.jetbrains.kotlin.util.Logger
 import pt.iscte.ambco.kmemoize.api.Memoize
 import kotlin.reflect.jvm.isAccessible
@@ -38,13 +42,14 @@ class KMemoizeIrGenerationExtension(
     }
 }
 
+private object GeneratedForMemoizationPluginKey: GeneratedDeclarationKey()
+private val GeneratedForMemoization = IrDeclarationOrigin.GeneratedByPlugin(GeneratedForMemoizationPluginKey)
+
 @OptIn(UnsafeDuringIrConstructionAPI::class)
 private class KMemoizeIrGenerationTransformer(
     context: IrPluginContext,
     logger: Logger
 ): IrElementTransformerWrapper(context, logger) {
-
-    private object GeneratedForMemoization: GeneratedDeclarationKey()
 
     private val factory: IrFactory
         get() = context.irFactory
@@ -74,67 +79,64 @@ private class KMemoizeIrGenerationTransformer(
         elements: List<IrExpression>
     ): IrExpression =
         irCall(irListOf, listOfType(elementType), listOf(elementType)).apply {
-            arguments.add(irVararg(elementType, elements))
-        }
-
-    private fun getMemoizationFieldInitializer(
-        function: IrSimpleFunction,
-        memoryKeyType: IrType,
-    ): IrExpressionBody =
-        with(DeclarationIrBuilder(context, function.symbol)) {
-            irExprBody(irGetMutableMapOf(memoryKeyType, function.returnType))
+            arguments[0] = irVararg(elementType, elements)
         }
 
     private fun getMemoizationField(
         function: IrSimpleFunction,
         memoryKeyType: IrType,
-        mapOfListOfArgumentsToReturnValueType: IrType
+        mapOfListOfArgumentsToReturnValueType: IrType,
+        isStatic: Boolean
     ): IrField =
         factory.buildField {
-            name = Name.identifier("${function.name.identifier}${function.hashCode()}Memory")
+            name = Name.identifier("${function.name.identifierOrNullIfSpecial ?: "anonymous"}${function.hashCode()}Memory")
             visibility = DescriptorVisibilities.PRIVATE
             type = mapOfListOfArgumentsToReturnValueType
             isFinal = true
-            isStatic = true
-            origin = IrDeclarationOrigin.GeneratedByPlugin(GeneratedForMemoization)
+            this.isStatic = isStatic
+            origin = GeneratedForMemoization
         }.apply {
-            initializer = getMemoizationFieldInitializer(function, memoryKeyType)
+            initializer = with(DeclarationIrBuilder(context, function.symbol)) {
+                irExprBody(irGetMutableMapOf(memoryKeyType, function.returnType))
+            }
         }
 
-    private fun IrFunction.isPure(): Boolean =
-        false // TODO
+    private fun returnsUnsupportedType(declaration: IrSimpleFunction) =
+        with(declaration.returnType) {
+            isUnit() || isNothing() || isNullableNothing()
+        }
 
     override fun visitSimpleFunction(declaration: IrSimpleFunction): IrStatement {
         if (declaration.hasAnnotation<Memoize>()) {
             if (declaration.body == null)
-                logger.warning("Cannot memoize body-less function: $declaration")
+                logger.warning("Cannot @Memoize body-less function: ${declaration.kotlinFqName}")
             else if (!declaration.hasValueParameters)
-                logger.warning("Cannot memoize function without value parameters: $declaration")
-            else if (declaration.isPure())
-                logger.warning("Cannot memoize non-pure function: $declaration")
+                logger.warning("Cannot @Memoize function without value parameters: ${declaration.kotlinFqName}")
+            else if (returnsUnsupportedType(declaration))
+                logger.warning("Cannot @Memoize function with return type ${declaration.returnType.classFqName}: ${declaration.kotlinFqName}")
+            else if (!declaration.isPure())
+                logger.warning("Cannot @Memoize non-pure function: ${declaration.kotlinFqName}")
             else {
                 val transformer = when {
                     declaration.isTopLevel -> ::memoizeTopLevelFunction
-                    declaration.isStatic -> ::memoizeStaticFunction
-                    declaration.isAnonymousFunction -> ::memoizeAnonymousFunction
-                    declaration.dispatchReceiverParameter != null -> ::memoizeMemberFunction
+                    declaration.parent is IrClass -> ::memoizeClassFunction
+                    declaration.isLocal -> ::memoizeAnonymousOrLocalFunction
+                    declaration.name == SpecialNames.ANONYMOUS -> ::memoizeAnonymousOrLocalFunction
                     else -> null
                 }
 
                 if (transformer == null) {
-                    logger.warning("Unsupported declaration for @Memoize, skipping: $declaration")
+                    logger.warning("Unsupported declaration for @Memoize, skipping: ${declaration.kotlinFqName}")
                     return super.visitSimpleFunction(declaration)
                 }
 
-                // ArgumentsType = type of function value arguments, if all the same type, Any? otherwise
-                // TODO find closest common supertype?
-                val argumentsType = declaration.getValueParameters().map {
-                    it.type
-                }.toSet().singleOrNull()?.type ?: context.irBuiltIns.anyNType
+                // ArgumentsType = type of function value arguments, if all the same type, closest supertype otherwise
+                val parameterTypes = declaration.getValueParameters().map { it.type }
+                val argumentsType =
+                    parameterTypes.toSet().singleOrNull() ?: context.findClosestCommonSupertype(parameterTypes)
 
                 // List<ArgumentsType> OR SingleArgumentType (small optimization if function takes a single argument)
-                val memoryKeyType =
-                    declaration.getValueParameters().singleOrNull()?.type ?: listOfType(argumentsType)
+                val memoryKeyType = parameterTypes.singleOrNull() ?: listOfType(argumentsType)
 
                 // MutableMap<List<ArgumentsType>, FunctionReturnType>
                 val mapOfFunctionArgumentsToReturnValueType = context.irBuiltIns.mutableMapClass.typeWithArguments(
@@ -162,7 +164,7 @@ private class KMemoizeIrGenerationTransformer(
             else
                 irGet(function.getValueParameters().first())
 
-        // isMemoized = memory.containsKey(listOf(getFunctionArguments))
+        // isMemoized = memory.containsKey(functionArguments)
         val isMemoized = irCallWithArgs(
             irGetField(null, memory),
             irMapContainsKey,
@@ -172,14 +174,14 @@ private class KMemoizeIrGenerationTransformer(
         // isNotMemoized = !isMemoized
         val isNotMemoized = irNot(isMemoized)
 
-        // if (isNotMemoized) { memory.set(listOf(getFunctionArguments), resultOfFunctionCall) }
+        // if (isNotMemoized) { memory.set(functionArguments, resultOfFunctionCall) }
         val ifNotContainedThenMemoize = irIfThen(
             type = context.irBuiltIns.unitType,
             condition = isNotMemoized,
             thenPart = irBlock {  }.apply {
                 statements.addAll(function.body?.statements ?: emptyList())
                 transform(object : IrElementTransformerVoidWithContext() {
-                    // (return exp) --> (memory[listOf(getFunctionArguments)] = exp)
+                    // (return exp) --> (memory[functionArguments] = exp)
                     override fun visitReturn(expression: IrReturn): IrExpression {
                         if (expression.returnTargetSymbol != function.symbol)
                             return super.visitReturn(expression)
@@ -194,14 +196,14 @@ private class KMemoizeIrGenerationTransformer(
             }
         )
 
-        // memoizedValue = memory.get(listOfArguments)
+        // memoizedValue = memory.get(functionArguments)
         val memoizedValue = irCallWithArgs(
             irGetField(null, memory),
             irMapGet,
             memoryArgumentsKey
         ).apply { type = function.returnType }
 
-        // return memoizedValue
+        // return memoizedValue!!
         val returnMemoized = irReturn(irCheckNotNull(memoizedValue)).apply {
             type = function.returnType
         }
@@ -209,7 +211,7 @@ private class KMemoizeIrGenerationTransformer(
         function.body = factory.simpleBlockBody(listOf(ifNotContainedThenMemoize, returnMemoized))
     }
 
-    private fun memoizeMemberFunction(
+    private fun memoizeClassFunction(
         function: IrSimpleFunction,
         argumentsType: IrType,
         memoryKeyType: IrType,
@@ -217,12 +219,14 @@ private class KMemoizeIrGenerationTransformer(
     ) {
         val klass = function.parent as? IrClass
         if (klass == null) {
-            logger.warning("Declaring class not found for function: $function")
+            logger.warning("Declaring class not found for function: ${function.kotlinFqName}")
             return
         }
 
         val memory = klass.addField {
-            updateFrom(getMemoizationField(function, memoryKeyType, mapOfListOfArgumentsToReturnValueType))
+            val backing = getMemoizationField(function, memoryKeyType, mapOfListOfArgumentsToReturnValueType, function.isStatic)
+            name = backing.name
+            updateFrom(backing)
         }
 
         memoize(function, memory, memoryKeyType, argumentsType)
@@ -234,34 +238,42 @@ private class KMemoizeIrGenerationTransformer(
         memoryKeyType: IrType,
         mapOfListOfArgumentsToReturnValueType: IrType
     ) {
-        val packageFragment = function.parent as? IrPackageFragment
+        val packageFragment = function.parent as? IrPackageFragment ?: (function.parent as? IrClass)?.parent as? IrPackageFragment
         if (packageFragment == null) {
-            logger.warning("Package fragment not found for top-level function: $function")
+            logger.warning("Package fragment not found for top-level function: ${function.kotlinFqName}")
             return
         }
 
-        val memory = getMemoizationField(function, memoryKeyType, mapOfListOfArgumentsToReturnValueType)
+        val memory = getMemoizationField(function, memoryKeyType, mapOfListOfArgumentsToReturnValueType, true)
         packageFragment.addChild(memory)
 
         memoize(function, memory, memoryKeyType, argumentsType)
     }
 
-    private fun memoizeStaticFunction(
+    private fun memoizeAnonymousOrLocalFunction(
         function: IrSimpleFunction,
         argumentsType: IrType,
-        listOfArgumentsType: IrType,
+        memoryKeyType: IrType,
         mapOfListOfArgumentsToReturnValueType: IrType
     ) {
-        throw UnsupportedOperationException("Static functions not yet supported!")
-    }
+        val container = function.findClosestAncestorContainer()
+        if (container == null) {
+            logger.warning("Could not find declaration container ancestor for function: ${function.kotlinFqName}")
+            return
+        }
 
-    private fun memoizeAnonymousFunction(
-        function: IrSimpleFunction,
-        argumentsType: IrType,
-        listOfArgumentsType: IrType,
-        mapOfListOfArgumentsToReturnValueType: IrType
-    ) {
-        throw UnsupportedOperationException("Anonymous functions not yet supported!")
+        val isStatic =
+            function.isStatic
+            || container is IrPackageFragment
+            || (container is IrClass && container.isObject)
+            || function.declarationAncestors().any {
+                (it as? IrFunction)?.isStatic == true
+            }
+
+        val memory = getMemoizationField(function, memoryKeyType, mapOfListOfArgumentsToReturnValueType, isStatic)
+        container.addChild(memory)
+
+        memoize(function, memory, memoryKeyType, argumentsType)
     }
 }
 
