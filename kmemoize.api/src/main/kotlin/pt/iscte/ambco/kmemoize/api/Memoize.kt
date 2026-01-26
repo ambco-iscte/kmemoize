@@ -5,19 +5,25 @@ package pt.iscte.ambco.kmemoize.api
  * A memoized function stores calls in an auxiliary data structure
  * to avoid repeated computation of the same call.
  *
- * The compiler plugin automatically generates the necessary data
- * structure and memoization code.
- *
  * **Example:**
  * ```
- *  import pt.iscte.ambco.kmemoize.api.Memoize
+ *  @Memoize
+ *  fun foo(p: T1): T2 {
+ *      return bar(p)
+ *  }
+ *  ```
+ *  Compiles to (identifiers may vary):
+ *  ```
+ *  private val fooMemory = mutableMapOf<T1, T2>()
  *
  *  @Memoize
- *  fun foo(n: Int) {
- *      ...
+ *  fun foo(p: T1): T2 {
+ *      if (p !in fooMemory)
+ *          fooMemory[p] = bar(p)
+ *      return fooMemory[p]!!
  *  }
  *  ```
  */
 @Retention(AnnotationRetention.RUNTIME)
 @Target(AnnotationTarget.FUNCTION)
-annotation class Memoize()
+annotation class Memoize

@@ -4,7 +4,6 @@ package pt.iscte.ambco.kmemoize.compiler
 
 import org.jetbrains.kotlin.ir.IrStatement
 import org.jetbrains.kotlin.ir.UNDEFINED_OFFSET
-import org.jetbrains.kotlin.ir.backend.js.utils.isDispatchReceiver
 import org.jetbrains.kotlin.ir.builders.IrBuilder
 import org.jetbrains.kotlin.ir.builders.irCall
 import org.jetbrains.kotlin.ir.declarations.*
@@ -28,16 +27,13 @@ internal fun IrBuilder.irCheckNotNull(expression: IrExpression): IrCall =
     }
 
 internal val IrFunction.hasValueParameters: Boolean
-    get() = parameters.any { !it.isDispatchReceiver }
+    get() = parameters.any { it.kind == IrParameterKind.Regular }
 
 internal fun IrFunction.getValueParameters(): List<IrValueParameter> =
     parameters.filter { it.kind == IrParameterKind.Regular }
 
 internal fun IrFactory.simpleBlockBody(statements: List<IrStatement>): IrBlockBody =
     createBlockBody(startOffset = UNDEFINED_OFFSET, endOffset = UNDEFINED_OFFSET, statements = statements)
-
-internal fun IrFactory.simpleBlockBody(vararg statements: IrStatement): IrBlockBody =
-    simpleBlockBody(statements.toList())
 
 internal inline fun <reified T> IrFunction.hasAnnotation(): Boolean =
     annotations.any {
@@ -51,15 +47,8 @@ internal fun IrBuilder.irCallWithArgs(
 ): IrCall =
     irCall(callee).apply {
         dispatchReceiver = receiver
-        callee.owner.parameters.filter { !it.isDispatchReceiver }.forEachIndexed { index, parameter ->
+        callee.owner.getValueParameters().forEachIndexed { index, parameter ->
             arguments[parameter] = args[index]
-        }
-    }
-
-internal fun IrBuilder.irCallWithArgs(callee: IrSimpleFunctionSymbol, vararg args: IrExpression): IrCall =
-    irCall(callee).apply {
-        callee.owner.parameters.forEachIndexed { index, parameter ->
-            arguments[index] = args[index]
         }
     }
 

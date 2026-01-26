@@ -66,19 +66,43 @@ private class KMemoizeIrGenerationTransformer(
     ): IrExpression =
         irCall(irMutableMapOf, mapType, listOf(keyType, valueType))
 
+    private fun listOfType(elementType: IrType): IrType =
+        context.irBuiltIns.listClass.typeWithArguments(elementType)
+
     private fun DeclarationIrBuilder.irGetListOf(
         elementType: IrType,
         elements: List<IrExpression>
     ): IrExpression =
-        irCallWithArgs(irListOf, irVararg(elementType, elements)).apply {
-            typeArguments[0] = elementType
+        irCall(irListOf, listOfType(elementType), listOf(elementType)).apply {
+            arguments.add(irVararg(elementType, elements))
         }
 
-    private fun listOfType(elementType: IrType): IrType =
-        context.irBuiltIns.listClass.typeWithArguments(elementType)
+    private fun getMemoizationFieldInitializer(
+        function: IrSimpleFunction,
+        memoryKeyType: IrType,
+    ): IrExpressionBody =
+        with(DeclarationIrBuilder(context, function.symbol)) {
+            irExprBody(irGetMutableMapOf(memoryKeyType, function.returnType))
+        }
 
-    private fun IrFunction.dependsOnExternalVariables(): Boolean =
-        false // TODO forbid it, or in the map save another map <ExternalVariable, Value> for external state?
+    private fun getMemoizationField(
+        function: IrSimpleFunction,
+        memoryKeyType: IrType,
+        mapOfListOfArgumentsToReturnValueType: IrType
+    ): IrField =
+        factory.buildField {
+            name = Name.identifier("${function.name.identifier}${function.hashCode()}Memory")
+            visibility = DescriptorVisibilities.PRIVATE
+            type = mapOfListOfArgumentsToReturnValueType
+            isFinal = true
+            isStatic = true
+            origin = IrDeclarationOrigin.GeneratedByPlugin(GeneratedForMemoization)
+        }.apply {
+            initializer = getMemoizationFieldInitializer(function, memoryKeyType)
+        }
+
+    private fun IrFunction.isPure(): Boolean =
+        false // TODO
 
     override fun visitSimpleFunction(declaration: IrSimpleFunction): IrStatement {
         if (declaration.hasAnnotation<Memoize>()) {
@@ -86,8 +110,8 @@ private class KMemoizeIrGenerationTransformer(
                 logger.warning("Cannot memoize body-less function: $declaration")
             else if (!declaration.hasValueParameters)
                 logger.warning("Cannot memoize function without value parameters: $declaration")
-            else if (declaration.dependsOnExternalVariables())
-                logger.warning("Cannot memoize function that depends on external variables: $declaration")
+            else if (declaration.isPure())
+                logger.warning("Cannot memoize non-pure function: $declaration")
             else {
                 val transformer = when {
                     declaration.isTopLevel -> ::memoizeTopLevelFunction
@@ -110,8 +134,7 @@ private class KMemoizeIrGenerationTransformer(
 
                 // List<ArgumentsType> OR SingleArgumentType (small optimization if function takes a single argument)
                 val memoryKeyType =
-                    declaration.getValueParameters().singleOrNull()?.type ?:
-                    context.irBuiltIns.listClass.typeWithArguments(argumentsType)
+                    declaration.getValueParameters().singleOrNull()?.type ?: listOfType(argumentsType)
 
                 // MutableMap<List<ArgumentsType>, FunctionReturnType>
                 val mapOfFunctionArgumentsToReturnValueType = context.irBuiltIns.mutableMapClass.typeWithArguments(
@@ -183,16 +206,8 @@ private class KMemoizeIrGenerationTransformer(
             type = function.returnType
         }
 
-        function.body = factory.simpleBlockBody(ifNotContainedThenMemoize, returnMemoized)
+        function.body = factory.simpleBlockBody(listOf(ifNotContainedThenMemoize, returnMemoized))
     }
-
-    private fun getMemoizationFieldInitializer(
-        function: IrSimpleFunction,
-        memoryKeyType: IrType,
-    ): IrExpressionBody =
-        with(DeclarationIrBuilder(context, function.symbol)) {
-            irExprBody(irGetMutableMapOf(memoryKeyType, function.returnType))
-        }
 
     private fun memoizeMemberFunction(
         function: IrSimpleFunction,
@@ -202,19 +217,12 @@ private class KMemoizeIrGenerationTransformer(
     ) {
         val klass = function.parent as? IrClass
         if (klass == null) {
-            logger.warning("Declaring class not found for top-level function: $function")
+            logger.warning("Declaring class not found for function: $function")
             return
         }
 
         val memory = klass.addField {
-            name = Name.identifier("${function.name.identifier}${function.hashCode()}memory")
-            visibility = DescriptorVisibilities.PRIVATE
-            type = mapOfListOfArgumentsToReturnValueType
-            isFinal = true
-            isStatic = false
-            origin = IrDeclarationOrigin.GeneratedByPlugin(GeneratedForMemoization)
-        }.apply {
-            initializer = getMemoizationFieldInitializer(function, memoryKeyType)
+            updateFrom(getMemoizationField(function, memoryKeyType, mapOfListOfArgumentsToReturnValueType))
         }
 
         memoize(function, memory, memoryKeyType, argumentsType)
@@ -232,16 +240,7 @@ private class KMemoizeIrGenerationTransformer(
             return
         }
 
-        val memory = factory.buildField {
-            name = Name.identifier("${function.name.identifier}${function.hashCode()}memory")
-            visibility = DescriptorVisibilities.PRIVATE
-            type = mapOfListOfArgumentsToReturnValueType
-            isFinal = true
-            isStatic = true
-            origin = IrDeclarationOrigin.GeneratedByPlugin(GeneratedForMemoization)
-        }.apply {
-            initializer = getMemoizationFieldInitializer(function, memoryKeyType)
-        }
+        val memory = getMemoizationField(function, memoryKeyType, mapOfListOfArgumentsToReturnValueType)
         packageFragment.addChild(memory)
 
         memoize(function, memory, memoryKeyType, argumentsType)

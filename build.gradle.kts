@@ -5,15 +5,17 @@ plugins {
     kotlin("jvm") version "2.2.0"
 }
 
+private val _version = "0.2.2"
+
 group = "pt.iscte.ambco"
-version = "0.2.1"
+version = _version
 
 allprojects {
     apply(plugin = "org.jetbrains.kotlin.jvm")
     apply(plugin = "org.jetbrains.kotlin.kapt")
 
     group = "pt.iscte.ambco"
-    version = "0.0.1"
+    version = _version
 
     repositories {
         mavenCentral()
