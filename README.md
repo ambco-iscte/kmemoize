@@ -13,7 +13,7 @@ without the need for boilerplate code.
 
 <br>
 
-##  Example
+##  🧠 Example
 ### Help! My Function Is Recursive and I’m Calling It a Lot!
 ```kotlin
 fun factorial(n: Int): Long =

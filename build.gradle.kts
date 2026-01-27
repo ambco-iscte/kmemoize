@@ -5,7 +5,7 @@ plugins {
     kotlin("jvm") version "2.2.0"
 }
 
-private val _version = "0.3.0"
+private val _version = "0.3.2"
 
 group = "pt.iscte.ambco"
 version = _version
@@ -30,7 +30,13 @@ repositories {
 dependencies {
     compileOnly(project("kmemoize.compiler"))
     kotlinCompilerPluginClasspath(project("kmemoize.compiler"))
+    implementation(project("kmemoize.compiler"))
     implementation(project("kmemoize.api"))
+
+    testImplementation("dev.zacsweers.kctfork:core:0.12.1")
+    testApi("org.junit.jupiter:junit-jupiter-api:5.9.2")
+    testApi("org.junit.platform:junit-platform-suite:1.9.2")
+    testImplementation("org.jetbrains.kotlin:kotlin-test")
 }
 
 tasks.test {

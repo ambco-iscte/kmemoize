@@ -109,13 +109,13 @@ private class KMemoizeIrGenerationTransformer(
     override fun visitSimpleFunction(declaration: IrSimpleFunction): IrStatement {
         if (declaration.hasAnnotation<Memoize>()) {
             if (declaration.body == null)
-                logger.warning("Cannot @Memoize body-less function: ${declaration.kotlinFqName}")
+                logger.error("Cannot @Memoize body-less function: ${declaration.kotlinFqName}")
             else if (!declaration.hasValueParameters)
-                logger.warning("Cannot @Memoize function without value parameters: ${declaration.kotlinFqName}")
+                logger.error("Cannot @Memoize function without value parameters: ${declaration.kotlinFqName}")
             else if (returnsUnsupportedType(declaration))
-                logger.warning("Cannot @Memoize function with return type ${declaration.returnType.classFqName}: ${declaration.kotlinFqName}")
-            else if (!declaration.isPure())
-                logger.warning("Cannot @Memoize non-pure function: ${declaration.kotlinFqName}")
+                logger.error("Cannot @Memoize function with return type ${declaration.returnType.classFqName}: ${declaration.kotlinFqName}")
+            else if (!context.isPure(declaration, logger))
+                logger.error("Cannot @Memoize non-pure function: ${declaration.kotlinFqName}")
             else {
                 val transformer = when {
                     declaration.isTopLevel -> ::memoizeTopLevelFunction
@@ -219,7 +219,7 @@ private class KMemoizeIrGenerationTransformer(
     ) {
         val klass = function.parent as? IrClass
         if (klass == null) {
-            logger.warning("Declaring class not found for function: ${function.kotlinFqName}")
+            logger.error("Declaring class not found for function: ${function.kotlinFqName}")
             return
         }
 
@@ -240,7 +240,7 @@ private class KMemoizeIrGenerationTransformer(
     ) {
         val packageFragment = function.parent as? IrPackageFragment ?: (function.parent as? IrClass)?.parent as? IrPackageFragment
         if (packageFragment == null) {
-            logger.warning("Package fragment not found for top-level function: ${function.kotlinFqName}")
+            logger.error("Package fragment not found for top-level function: ${function.kotlinFqName}")
             return
         }
 
@@ -258,7 +258,7 @@ private class KMemoizeIrGenerationTransformer(
     ) {
         val container = function.findClosestAncestorContainer()
         if (container == null) {
-            logger.warning("Could not find declaration container ancestor for function: ${function.kotlinFqName}")
+            logger.error("Could not find declaration container ancestor for function: ${function.kotlinFqName}")
             return
         }
 

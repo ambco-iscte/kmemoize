@@ -3,7 +3,7 @@
 package pt.iscte.ambco.kmemoize.compiler
 
 import org.jetbrains.kotlin.backend.common.extensions.IrPluginContext
-import org.jetbrains.kotlin.backend.common.ir.isPure
+import org.jetbrains.kotlin.ir.BuiltInOperatorNames
 import org.jetbrains.kotlin.ir.IrStatement
 import org.jetbrains.kotlin.ir.UNDEFINED_OFFSET
 import org.jetbrains.kotlin.ir.builders.IrBuilder
@@ -23,10 +23,22 @@ import org.jetbrains.kotlin.ir.types.typeWithArguments
 import org.jetbrains.kotlin.ir.util.isAnnotation
 import org.jetbrains.kotlin.ir.util.isNullable
 import org.jetbrains.kotlin.ir.util.superTypes
-import org.jetbrains.kotlin.ir.visitors.IrVisitorVoid
-import org.jetbrains.kotlin.ir.visitors.acceptVoid
 import org.jetbrains.kotlin.name.FqName
+import org.jetbrains.kotlin.util.Logger
 import kotlin.math.max
+import kotlin.reflect.KProperty1
+import kotlin.reflect.full.declaredMemberProperties
+
+@Suppress("UNCHECKED_CAST")
+internal val IrBuiltInOperatorNames: List<String> = BuiltInOperatorNames::class.declaredMemberProperties.mapNotNull {
+    (it as? KProperty1<BuiltInOperatorNames, String>)?.call()
+}
+
+internal fun IrFunction.isBuiltInOperator(): Boolean =
+    name.asString() in IrBuiltInOperatorNames
+
+internal fun IrDeclaration.declaredWithin(function: IrFunction): Boolean =
+    declarationAncestors().filterIsInstance<IrFunction>().toSet().singleOrNull() == function
 
 internal fun IrDeclaration.findClosestAncestorContainer(): IrDeclarationContainer? {
     var current: IrDeclarationParent = this.parent
@@ -75,26 +87,8 @@ internal fun IrPluginContext.findClosestCommonSupertype(types: List<IrType>): Ir
     else if (types.size == 2) findClosestCommonSupertype(types[0], types[1])
     else findClosestCommonSupertype(types[0], findClosestCommonSupertype(types.subList(1, types.size)))
 
-internal fun IrFunction.isPure(): Boolean {
-    var pure = true
-    acceptVoid(object: IrVisitorVoid() {
-        override fun visitFunction(declaration: IrFunction) {
-            if (declaration != this@isPure && !declaration.isPure())
-                pure = false
-        }
-
-        override fun visitSimpleFunction(declaration: IrSimpleFunction) {
-            if (declaration != this@isPure && !declaration.isPure())
-                pure = false
-        }
-
-        override fun visitExpression(expression: IrExpression) {
-            if (!expression.isPure(false))
-                pure = false
-        }
-    })
-    return pure
-}
+internal fun IrPluginContext.isPure(function: IrFunction, logger: Logger): Boolean =
+    CheckPureFunctionVisitor(this, function, logger).isPure()
 
 internal val IrFunction.isNotStatic: Boolean
     get() = parent is IrClass && dispatchReceiverParameter != null
