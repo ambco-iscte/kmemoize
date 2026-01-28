@@ -10,6 +10,7 @@ without the need for boilerplate code.
 
 - Functions are tagged with the `@Memoize` annotation.
 - Supports **pure** top-level, member, local, and anonymous functions :)
+  - Impure functions can be forcibly memoized by using the `@AlwaysMemoize` annotation. **This may lead to unexpected results!**
 
 <br>
 
@@ -39,8 +40,6 @@ true
 Non-memoized time: 1.483682300s
 Memoized time: 10.784501ms
 ```
-This example may be contrived (who's out there regularly summing the first 40 thousand factorials?), but it illustrates 
-how the plugin works.
 
 ### 🔍 How Does It Work?
 

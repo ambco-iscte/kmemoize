@@ -5,7 +5,7 @@ plugins {
     kotlin("jvm") version "2.2.0"
 }
 
-private val _version = "0.3.3"
+private val _version = "0.3.4"
 
 group = "pt.iscte.ambco"
 version = _version

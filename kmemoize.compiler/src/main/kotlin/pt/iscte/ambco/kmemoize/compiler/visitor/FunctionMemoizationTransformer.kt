@@ -48,6 +48,7 @@ import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.name.SpecialNames
 import org.jetbrains.kotlin.util.Logger
 import org.jetbrains.kotlin.util.WithLogger
+import pt.iscte.ambco.kmemoize.api.AlwaysMemoize
 import pt.iscte.ambco.kmemoize.api.Memoize
 import pt.iscte.ambco.kmemoize.compiler.common.irCallBuilder
 import pt.iscte.ambco.kmemoize.compiler.common.findClosestCommonSupertype
@@ -134,14 +135,15 @@ internal class FunctionMemoizationTransformer(
         }
 
     override fun visitSimpleFunction(declaration: IrSimpleFunction): IrStatement {
-        if (declaration.hasAnnotation<Memoize>()) {
+        val isForciblyMemoized = declaration.hasAnnotation(AlwaysMemoize::class)
+        if (declaration.hasAnnotation<Memoize>() || isForciblyMemoized) {
             if (declaration.body == null)
                 logger.error("Cannot @Memoize body-less function: ${declaration.kotlinFqName}")
             else if (!declaration.hasValueParameters)
                 logger.error("Cannot @Memoize function without value parameters: ${declaration.kotlinFqName}")
             else if (returnsUnsupportedType(declaration))
                 logger.error("Cannot @Memoize function with return type ${declaration.returnType.classFqName}: ${declaration.kotlinFqName}")
-            else if (!context.isPure(declaration, logger))
+            else if (!isForciblyMemoized && !context.isPure(declaration, logger))
                 logger.error("Cannot @Memoize non-pure function: ${declaration.kotlinFqName}")
             else {
                 val transformer = when {

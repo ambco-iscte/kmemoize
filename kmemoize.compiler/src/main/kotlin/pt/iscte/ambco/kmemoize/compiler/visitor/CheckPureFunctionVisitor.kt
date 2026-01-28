@@ -1,5 +1,6 @@
 package pt.iscte.ambco.kmemoize.compiler.visitor
 
+import org.jetbrains.annotations.Contract
 import org.jetbrains.kotlin.backend.common.extensions.IrPluginContext
 import org.jetbrains.kotlin.ir.IrElement
 import org.jetbrains.kotlin.ir.declarations.IrAnonymousInitializer
@@ -92,6 +93,7 @@ import org.jetbrains.kotlin.ir.types.classOrNull
 import org.jetbrains.kotlin.ir.util.invokeFunction
 import org.jetbrains.kotlin.ir.util.isAssignable
 import org.jetbrains.kotlin.ir.util.isImmutable
+import org.jetbrains.kotlin.ir.util.isTrueConst
 import org.jetbrains.kotlin.ir.util.statements
 import org.jetbrains.kotlin.ir.visitors.IrVisitor
 import org.jetbrains.kotlin.name.CallableId
@@ -100,7 +102,10 @@ import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.util.Logger
 import org.jetbrains.kotlin.util.WithLogger
+import pt.iscte.ambco.kmemoize.api.AlwaysMemoize
 import pt.iscte.ambco.kmemoize.compiler.common.declaredWithin
+import pt.iscte.ambco.kmemoize.compiler.common.getAnnotation
+import pt.iscte.ambco.kmemoize.compiler.common.hasAnnotation
 import pt.iscte.ambco.kmemoize.compiler.common.isBuiltInOperator
 import pt.iscte.ambco.kmemoize.compiler.common.referenceDeclaredFunctions
 
@@ -114,49 +119,33 @@ data class CheckPureFunctionVisitor(
     override val logger: Logger
 ): IrVisitor<Boolean, Boolean>(), WithLogger {
 
-    private val _knownImpureDeclarations: List<IrDeclaration> = (listOfNotNull(
+    private val knownImpureDeclarations: List<IrDeclaration> = (listOfNotNull(
         context.referenceClass(
             ClassId(
                 FqName("java.util"),
                 Name.identifier("Random")
             )
-        )?.owner,
-
+        ),
         context.referenceClass(
             ClassId(
                 FqName("kotlin"),
                 Name.identifier("Random")
             )
-        )?.owner
+        )
     ) +
     context.referenceFunctions(
         CallableId(
             FqName("kotlin.random"),
             Name.identifier("Random")
         )
-    ).map { it.owner } +
+    ) +
     context.referenceDeclaredFunctions(
         CallableId(
             FqName("java.lang"),
             FqName("Math"),
             Name.identifier("random")
         )
-    ).map { it.owner })
-
-    init {
-        logger.strongWarning(
-            context.referenceDeclaredFunctions(
-                CallableId(
-                    FqName("java.lang"),
-                    FqName("Math"),
-                    Name.identifier("random")
-                )
-            ).joinToString { it.owner.name.identifier })
-    }
-
-    private fun isImpure(function: IrFunction): Boolean =
-        function in _knownImpureDeclarations ||
-        (function is IrSimpleFunction && function.overriddenSymbols.any { isImpure(it.owner) })
+    )).mapNotNull { it.owner as? IrDeclaration }
 
     private fun isLocalOrFinal(declaration: IrDeclaration): Boolean =
         declaration.declaredWithin(function) || when (declaration) {
@@ -169,7 +158,7 @@ data class CheckPureFunctionVisitor(
         }
 
     override fun visitElement(element: IrElement, data: Boolean): Boolean =
-        element !in _knownImpureDeclarations
+        element !in knownImpureDeclarations
 
     // --------------------------------
     // VARS, FIELDS, PROPERTIES, ETC.
@@ -216,25 +205,25 @@ data class CheckPureFunctionVisitor(
     // --------------------------------
 
     override fun visitFunction(declaration: IrFunction, data: Boolean): Boolean =
-        if (declaration.isBuiltInOperator())
+        if (declaration.isBuiltInOperator() || declaration.hasAnnotation(AlwaysMemoize::class))
             true
-        else if (declaration in _knownImpureDeclarations)
+        else if (declaration in knownImpureDeclarations)
             false
         else
             declaration.parameters.all { it.accept(this, data) } &&
             declaration.body?.accept(this, data) ?: true
 
     override fun visitSimpleFunction(declaration: IrSimpleFunction, data: Boolean): Boolean =
-        if (declaration.isBuiltInOperator())
+        if (declaration.isBuiltInOperator() || declaration.hasAnnotation(AlwaysMemoize::class))
             true
-        else if (declaration in _knownImpureDeclarations)
+        else if (declaration in knownImpureDeclarations)
             false
         else
             declaration.parameters.all { it.accept(this, data) } &&
             declaration.body?.accept(this, data) ?: true
 
     override fun visitClass(declaration: IrClass, data: Boolean): Boolean =
-        if (declaration in _knownImpureDeclarations)
+        if (declaration in knownImpureDeclarations)
             false
         else
             declaration.declarations.all { it.accept(this, data) } &&

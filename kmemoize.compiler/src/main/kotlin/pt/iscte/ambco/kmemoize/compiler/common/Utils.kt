@@ -8,6 +8,7 @@ import org.jetbrains.kotlin.ir.builders.IrBuilder
 import org.jetbrains.kotlin.ir.builders.irCall
 import org.jetbrains.kotlin.ir.declarations.*
 import org.jetbrains.kotlin.ir.expressions.IrCall
+import org.jetbrains.kotlin.ir.expressions.IrConstructorCall
 import org.jetbrains.kotlin.ir.expressions.IrExpression
 import org.jetbrains.kotlin.ir.symbols.IrClassSymbol
 import org.jetbrains.kotlin.ir.symbols.IrFunctionSymbol
@@ -26,6 +27,7 @@ import org.jetbrains.kotlin.name.CallableId
 import org.jetbrains.kotlin.name.ClassId
 import org.jetbrains.kotlin.name.FqName
 import kotlin.math.max
+import kotlin.reflect.KClass
 import kotlin.reflect.KProperty1
 import kotlin.reflect.full.declaredMemberProperties
 
@@ -62,8 +64,18 @@ internal val IrFunction.hasValueParameters: Boolean
 internal fun IrFunction.getValueParameters(): List<IrValueParameter> =
     parameters.filter { it.kind == IrParameterKind.Regular }
 
-internal inline fun <reified T> IrFunction.hasAnnotation(): Boolean =
+internal inline fun <reified T> IrAnnotationContainer.hasAnnotation(): Boolean =
     annotations.any {
+        it.isAnnotation(FqName(T::class.qualifiedName ?: T::class.java.canonicalName))
+    }
+
+fun <T: Annotation> IrAnnotationContainer.hasAnnotation(klass: KClass<T>): Boolean =
+    annotations.any {
+        it.isAnnotation(FqName(klass.qualifiedName ?: klass.java.canonicalName))
+    }
+
+internal inline fun <reified T> IrAnnotationContainer.getAnnotation(): IrConstructorCall? =
+    annotations.firstOrNull {
         it.isAnnotation(FqName(T::class.qualifiedName ?: T::class.java.canonicalName))
     }
 
