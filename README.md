@@ -10,7 +10,7 @@ without the need for boilerplate code.
 
 - Functions are tagged with the `@Memoize` annotation.
 - Supports **pure** top-level, member, local, and anonymous functions :)
-  - Impure functions can be forcibly memoized by using the `@AlwaysMemoize` annotation. **This may lead to unexpected results!**
+  - Impure functions can be forcibly memoized by using the `@UnsafeMemoize` annotation. **This may lead to unexpected results!**
 
 <br>
 

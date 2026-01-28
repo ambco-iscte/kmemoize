@@ -63,7 +63,7 @@ class TestExpectedFailures: BaseTest() {
         """)
 
         assertEquals(KotlinCompilation.ExitCode.COMPILATION_ERROR, result.exitCode)
-        assertContains(result.messages, "Cannot @Memoize non-pure function: foo")
-        assertContains(result.messages, "Cannot @Memoize non-pure function: bar")
+        assertContains(result.messages, "Cannot @Memoize impure function: foo")
+        assertContains(result.messages, "Cannot @Memoize impure function: bar")
     }
 }

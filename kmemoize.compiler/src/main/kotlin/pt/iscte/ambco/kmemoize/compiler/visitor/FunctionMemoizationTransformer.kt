@@ -48,7 +48,7 @@ import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.name.SpecialNames
 import org.jetbrains.kotlin.util.Logger
 import org.jetbrains.kotlin.util.WithLogger
-import pt.iscte.ambco.kmemoize.api.AlwaysMemoize
+import pt.iscte.ambco.kmemoize.api.UnsafeMemoize
 import pt.iscte.ambco.kmemoize.api.Memoize
 import pt.iscte.ambco.kmemoize.compiler.common.irCallBuilder
 import pt.iscte.ambco.kmemoize.compiler.common.findClosestCommonSupertype
@@ -135,7 +135,40 @@ internal class FunctionMemoizationTransformer(
         }
 
     override fun visitSimpleFunction(declaration: IrSimpleFunction): IrStatement {
-        val isForciblyMemoized = declaration.hasAnnotation(AlwaysMemoize::class)
+
+        fun transform() {
+            val transformer = when {
+                declaration.isTopLevel -> ::memoizeTopLevelFunction
+                declaration.parent is IrClass -> ::memoizeClassFunction
+                declaration.isLocal -> ::memoizeAnonymousOrLocalFunction
+                declaration.name == SpecialNames.ANONYMOUS -> ::memoizeAnonymousOrLocalFunction
+                else -> null
+            }
+
+            if (transformer == null) {
+                logger.warning("Unsupported declaration for @Memoize, skipping: ${declaration.kotlinFqName}")
+                return
+            }
+
+            // ArgumentsType = type of function value arguments, if all the same type, closest supertype otherwise
+            val parameterTypes = declaration.getValueParameters().map { it.type }
+            val argumentsType =
+                parameterTypes.toSet().singleOrNull() ?: context.findClosestCommonSupertype(parameterTypes)
+
+            // List<ArgumentsType> OR SingleArgumentType (small optimization if function takes a single argument)
+            val memoryKeyType = parameterTypes.singleOrNull() ?: listOfType(argumentsType)
+
+            // MutableMap<List<ArgumentsType>, FunctionReturnType>
+            val mapOfFunctionArgumentsToReturnValueType = context.irBuiltIns.mutableMapClass.typeWithArguments(
+                memoryKeyType,
+                declaration.returnType
+            )
+
+            transformer.isAccessible = true
+            transformer.call(declaration, argumentsType, memoryKeyType, mapOfFunctionArgumentsToReturnValueType)
+        }
+
+        val isForciblyMemoized = declaration.hasAnnotation(UnsafeMemoize::class)
         if (declaration.hasAnnotation<Memoize>() || isForciblyMemoized) {
             if (declaration.body == null)
                 logger.error("Cannot @Memoize body-less function: ${declaration.kotlinFqName}")
@@ -143,39 +176,14 @@ internal class FunctionMemoizationTransformer(
                 logger.error("Cannot @Memoize function without value parameters: ${declaration.kotlinFqName}")
             else if (returnsUnsupportedType(declaration))
                 logger.error("Cannot @Memoize function with return type ${declaration.returnType.classFqName}: ${declaration.kotlinFqName}")
-            else if (!isForciblyMemoized && !context.isPure(declaration, logger))
-                logger.error("Cannot @Memoize non-pure function: ${declaration.kotlinFqName}")
-            else {
-                val transformer = when {
-                    declaration.isTopLevel -> ::memoizeTopLevelFunction
-                    declaration.parent is IrClass -> ::memoizeClassFunction
-                    declaration.isLocal -> ::memoizeAnonymousOrLocalFunction
-                    declaration.name == SpecialNames.ANONYMOUS -> ::memoizeAnonymousOrLocalFunction
-                    else -> null
-                }
-
-                if (transformer == null) {
-                    logger.warning("Unsupported declaration for @Memoize, skipping: ${declaration.kotlinFqName}")
-                    return super.visitSimpleFunction(declaration)
-                }
-
-                // ArgumentsType = type of function value arguments, if all the same type, closest supertype otherwise
-                val parameterTypes = declaration.getValueParameters().map { it.type }
-                val argumentsType =
-                    parameterTypes.toSet().singleOrNull() ?: context.findClosestCommonSupertype(parameterTypes)
-
-                // List<ArgumentsType> OR SingleArgumentType (small optimization if function takes a single argument)
-                val memoryKeyType = parameterTypes.singleOrNull() ?: listOfType(argumentsType)
-
-                // MutableMap<List<ArgumentsType>, FunctionReturnType>
-                val mapOfFunctionArgumentsToReturnValueType = context.irBuiltIns.mutableMapClass.typeWithArguments(
-                    memoryKeyType,
-                    declaration.returnType
-                )
-
-                transformer.isAccessible = true
-                transformer.call(declaration, argumentsType, memoryKeyType, mapOfFunctionArgumentsToReturnValueType)
+            else if (context.isPure(declaration, logger))
+                transform()
+            else if (isForciblyMemoized) {
+                logger.warning("@UnsafeMemoize annotation is used on an impure function: ${declaration.kotlinFqName}")
+                transform()
             }
+            else
+                logger.error("Cannot @Memoize impure function: ${declaration.kotlinFqName}")
         }
         return super.visitSimpleFunction(declaration)
     }

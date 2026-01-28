@@ -37,6 +37,8 @@ dependencies {
     testApi("org.junit.jupiter:junit-jupiter-api:5.9.2")
     testApi("org.junit.platform:junit-platform-suite:1.9.2")
     testImplementation("org.jetbrains.kotlin:kotlin-test")
+
+    testImplementation("org.jetbrains:annotations:26.0.2-1")
 }
 
 tasks.test {

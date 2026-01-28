@@ -1,6 +1,5 @@
 package pt.iscte.ambco.kmemoize.compiler.visitor
 
-import org.jetbrains.annotations.Contract
 import org.jetbrains.kotlin.backend.common.extensions.IrPluginContext
 import org.jetbrains.kotlin.ir.IrElement
 import org.jetbrains.kotlin.ir.declarations.IrAnonymousInitializer
@@ -93,7 +92,6 @@ import org.jetbrains.kotlin.ir.types.classOrNull
 import org.jetbrains.kotlin.ir.util.invokeFunction
 import org.jetbrains.kotlin.ir.util.isAssignable
 import org.jetbrains.kotlin.ir.util.isImmutable
-import org.jetbrains.kotlin.ir.util.isTrueConst
 import org.jetbrains.kotlin.ir.util.statements
 import org.jetbrains.kotlin.ir.visitors.IrVisitor
 import org.jetbrains.kotlin.name.CallableId
@@ -102,9 +100,8 @@ import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.util.Logger
 import org.jetbrains.kotlin.util.WithLogger
-import pt.iscte.ambco.kmemoize.api.AlwaysMemoize
+import pt.iscte.ambco.kmemoize.api.UnsafeMemoize
 import pt.iscte.ambco.kmemoize.compiler.common.declaredWithin
-import pt.iscte.ambco.kmemoize.compiler.common.getAnnotation
 import pt.iscte.ambco.kmemoize.compiler.common.hasAnnotation
 import pt.iscte.ambco.kmemoize.compiler.common.isBuiltInOperator
 import pt.iscte.ambco.kmemoize.compiler.common.referenceDeclaredFunctions
@@ -205,7 +202,7 @@ data class CheckPureFunctionVisitor(
     // --------------------------------
 
     override fun visitFunction(declaration: IrFunction, data: Boolean): Boolean =
-        if (declaration.isBuiltInOperator() || declaration.hasAnnotation(AlwaysMemoize::class))
+        if (declaration.isBuiltInOperator() || declaration.hasAnnotation(UnsafeMemoize::class))
             true
         else if (declaration in knownImpureDeclarations)
             false
@@ -214,7 +211,7 @@ data class CheckPureFunctionVisitor(
             declaration.body?.accept(this, data) ?: true
 
     override fun visitSimpleFunction(declaration: IrSimpleFunction, data: Boolean): Boolean =
-        if (declaration.isBuiltInOperator() || declaration.hasAnnotation(AlwaysMemoize::class))
+        if (declaration.isBuiltInOperator() || declaration.hasAnnotation(UnsafeMemoize::class))
             true
         else if (declaration in knownImpureDeclarations)
             false
