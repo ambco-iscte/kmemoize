@@ -1,7 +1,6 @@
-package pt.iscte.ambco.kmemoize.compiler
+package pt.iscte.ambco.kmemoize.compiler.visitor
 
 import org.jetbrains.kotlin.backend.common.extensions.IrPluginContext
-import org.jetbrains.kotlin.ir.BuiltInOperatorNames
 import org.jetbrains.kotlin.ir.IrElement
 import org.jetbrains.kotlin.ir.declarations.IrAnonymousInitializer
 import org.jetbrains.kotlin.ir.declarations.IrClass
@@ -40,6 +39,7 @@ import org.jetbrains.kotlin.ir.expressions.IrConst
 import org.jetbrains.kotlin.ir.expressions.IrConstantArray
 import org.jetbrains.kotlin.ir.expressions.IrConstantObject
 import org.jetbrains.kotlin.ir.expressions.IrConstantPrimitive
+import org.jetbrains.kotlin.ir.expressions.IrConstantValue
 import org.jetbrains.kotlin.ir.expressions.IrConstructorCall
 import org.jetbrains.kotlin.ir.expressions.IrContainerExpression
 import org.jetbrains.kotlin.ir.expressions.IrContinue
@@ -64,6 +64,7 @@ import org.jetbrains.kotlin.ir.expressions.IrGetValue
 import org.jetbrains.kotlin.ir.expressions.IrInlinedFunctionBlock
 import org.jetbrains.kotlin.ir.expressions.IrInstanceInitializerCall
 import org.jetbrains.kotlin.ir.expressions.IrLocalDelegatedPropertyReference
+import org.jetbrains.kotlin.ir.expressions.IrLoop
 import org.jetbrains.kotlin.ir.expressions.IrMemberAccessExpression
 import org.jetbrains.kotlin.ir.expressions.IrPropertyReference
 import org.jetbrains.kotlin.ir.expressions.IrRawFunctionReference
@@ -99,10 +100,12 @@ import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.util.Logger
 import org.jetbrains.kotlin.util.WithLogger
-import java.util.Random
-import kotlin.collections.flatten
-import kotlin.reflect.KProperty1
-import kotlin.reflect.full.declaredMemberProperties
+import pt.iscte.ambco.kmemoize.compiler.common.declaredWithin
+import pt.iscte.ambco.kmemoize.compiler.common.isBuiltInOperator
+import pt.iscte.ambco.kmemoize.compiler.common.referenceDeclaredFunctions
+
+internal fun IrPluginContext.isPure(function: IrFunction, logger: Logger): Boolean =
+    function.accept(CheckPureFunctionVisitor(this, function, logger), false)
 
 @OptIn(UnsafeDuringIrConstructionAPI::class)
 data class CheckPureFunctionVisitor(
@@ -111,59 +114,86 @@ data class CheckPureFunctionVisitor(
     override val logger: Logger
 ): IrVisitor<Boolean, Boolean>(), WithLogger {
 
-    private val _knownImpureDeclarations: List<IrDeclaration> = listOfNotNull(
-        context.referenceFunctions(CallableId(
+    private val _knownImpureDeclarations: List<IrDeclaration> = (listOfNotNull(
+        context.referenceClass(
+            ClassId(
+                FqName("java.util"),
+                Name.identifier("Random")
+            )
+        )?.owner,
+
+        context.referenceClass(
+            ClassId(
+                FqName("kotlin"),
+                Name.identifier("Random")
+            )
+        )?.owner
+    ) +
+    context.referenceFunctions(
+        CallableId(
+            FqName("kotlin.random"),
+            Name.identifier("Random")
+        )
+    ).map { it.owner } +
+    context.referenceDeclaredFunctions(
+        CallableId(
             FqName("java.lang"),
             FqName("Math"),
             Name.identifier("random")
-        )).firstOrNull()?.owner,
+        )
+    ).map { it.owner })
 
-        context.referenceClass(ClassId(
-            FqName("java.util"),
-            Name.identifier("Random")
-        ))?.owner,
+    init {
+        logger.strongWarning(
+            context.referenceDeclaredFunctions(
+                CallableId(
+                    FqName("java.lang"),
+                    FqName("Math"),
+                    Name.identifier("random")
+                )
+            ).joinToString { it.owner.name.identifier })
+    }
 
-        context.referenceClass(ClassId(
-            FqName("kotlin"),
-            Name.identifier("Random")
-        ))?.owner
-    ) + context.referenceFunctions(CallableId(
-        FqName("kotlin.random"),
-        Name.identifier("Random")
-    )).map { it.owner }
-
-    fun isPure(): Boolean =
-        function.accept(this, false)
+    private fun isImpure(function: IrFunction): Boolean =
+        function in _knownImpureDeclarations ||
+        (function is IrSimpleFunction && function.overriddenSymbols.any { isImpure(it.owner) })
 
     private fun isLocalOrFinal(declaration: IrDeclaration): Boolean =
         declaration.declaredWithin(function) || when (declaration) {
             is IrField -> declaration.isFinal
             is IrProperty -> !declaration.isVar
-            is IrValueParameter -> declaration in function.parameters
+            is IrValueParameter -> declaration.isImmutable || !declaration.isAssignable
             is IrVariable -> !declaration.isVar
             is IrValueDeclaration -> declaration.isImmutable || !declaration.isAssignable
             else -> false
         }
 
-    // --------------------------------
-    // TERMINALS
-    // --------------------------------
+    override fun visitElement(element: IrElement, data: Boolean): Boolean =
+        element !in _knownImpureDeclarations
 
-    override fun visitElement(element: IrElement, data: Boolean): Boolean = true
+    // --------------------------------
+    // VARS, FIELDS, PROPERTIES, ETC.
+    // --------------------------------
 
     override fun visitField(declaration: IrField, data: Boolean): Boolean =
-        isLocalOrFinal(declaration)
+        isLocalOrFinal(declaration) && declaration.initializer?.accept(this, data) ?: true
 
     override fun visitDeclaration(declaration: IrDeclarationBase, data: Boolean): Boolean =
         isLocalOrFinal(declaration)
 
     override fun visitProperty(declaration: IrProperty, data: Boolean): Boolean =
-        isLocalOrFinal(declaration)
+        isLocalOrFinal(declaration) && declaration.backingField?.accept(this, data) ?: true
 
     override fun visitVariable(declaration: IrVariable, data: Boolean): Boolean =
-        isLocalOrFinal(declaration)
+        isLocalOrFinal(declaration) && declaration.initializer?.accept(this, data) ?: true
 
-    override fun visitValueParameter(declaration: IrValueParameter, data: Boolean): Boolean = true
+    override fun visitValueParameter(declaration: IrValueParameter, data: Boolean): Boolean =
+        (declaration.defaultValue?.accept(this, data) ?: true) ||
+        (declaration !in function.parameters && isLocalOrFinal(declaration))
+
+    // --------------------------------
+    // ALWAYS PURE BY DEFINITION
+    // --------------------------------
 
     override fun visitBreak(jump: IrBreak, data: Boolean): Boolean = true
 
@@ -172,6 +202,8 @@ data class CheckPureFunctionVisitor(
     override fun visitContinue(jump: IrContinue, data: Boolean): Boolean = true
 
     override fun visitConst(expression: IrConst, data: Boolean): Boolean = true
+
+    override fun visitConstantValue(expression: IrConstantValue, data: Boolean): Boolean = true
 
     override fun visitSyntheticBody(body: IrSyntheticBody, data: Boolean): Boolean = true
 
@@ -184,21 +216,43 @@ data class CheckPureFunctionVisitor(
     // --------------------------------
 
     override fun visitFunction(declaration: IrFunction, data: Boolean): Boolean =
-        declaration.isBuiltInOperator() ||
-        (declaration !in _knownImpureDeclarations && declaration.parameters.all { it.accept(this,data) } &&
-        declaration.body?.accept(this, data) ?: true)
+        if (declaration.isBuiltInOperator())
+            true
+        else if (declaration in _knownImpureDeclarations)
+            false
+        else
+            declaration.parameters.all { it.accept(this, data) } &&
+            declaration.body?.accept(this, data) ?: true
 
     override fun visitSimpleFunction(declaration: IrSimpleFunction, data: Boolean): Boolean =
-        declaration.isBuiltInOperator() ||
-        (declaration !in _knownImpureDeclarations && declaration.parameters.all { it.accept(this,data) } &&
-        declaration.body?.accept(this, data) ?: true)
+        if (declaration.isBuiltInOperator())
+            true
+        else if (declaration in _knownImpureDeclarations)
+            false
+        else
+            declaration.parameters.all { it.accept(this, data) } &&
+            declaration.body?.accept(this, data) ?: true
 
     override fun visitClass(declaration: IrClass, data: Boolean): Boolean =
-        declaration !in _knownImpureDeclarations && declaration.declarations.all { it.accept(this, data) }
+        if (declaration in _knownImpureDeclarations)
+            false
+        else
+            declaration.declarations.all { it.accept(this, data) } &&
+            declaration.superTypes.all { it.classOrNull?.owner?.accept(this, data) ?: true }
 
     // --------------------------------
-    // NON-TERMINALS
+    // TRAVERSE IR TREE RECURSIVELY
     // --------------------------------
+
+    override fun visitCall(expression: IrCall, data: Boolean): Boolean =
+        if (expression.symbol.owner == function)
+            true
+        else
+            expression.symbol.owner.accept(this, data) &&
+            expression.arguments.all { it?.accept(this, data) ?: true }
+
+    override fun visitLoop(loop: IrLoop, data: Boolean): Boolean =
+        loop.condition.accept(this, data) && loop.body?.accept(this, data) ?: true
 
     override fun visitFieldAccess(expression: IrFieldAccessExpression, data: Boolean): Boolean =
         expression.symbol.owner.accept(this, data) && expression.receiver?.accept(this, data) ?: true
@@ -208,15 +262,11 @@ data class CheckPureFunctionVisitor(
 
     override fun visitMemberAccess(expression: IrMemberAccessExpression<*>, data: Boolean): Boolean =
         expression.symbol.owner.accept(this, data) &&
-        expression.arguments.all { it?.accept(this, data) ?: true } &&
-        expression.dispatchReceiver?.accept(this, data) ?: true
+        expression.arguments.all { it?.accept(this, data) ?: true }
 
     override fun visitFunctionAccess(expression: IrFunctionAccessExpression, data: Boolean): Boolean =
-        expression.symbol.owner == function || expression.symbol.owner.accept(this, data)
-
-    override fun visitCall(expression: IrCall, data: Boolean): Boolean =
-        expression.symbol.owner == function || expression.symbol.owner.accept(this, data) &&
-        expression.arguments.all { it?.accept(this, data) ?: true }
+        if (expression.symbol.owner == function) true
+        else expression.symbol.owner.accept(this, data)
 
     override fun visitDynamicMemberExpression(expression: IrDynamicMemberExpression, data: Boolean): Boolean =
         expression.receiver.accept(this, data)

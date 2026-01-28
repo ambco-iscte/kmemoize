@@ -14,7 +14,7 @@ without the need for boilerplate code.
 <br>
 
 ##  🧠 Example
-### Help! My Function Is Recursive and I’m Calling It a Lot!
+### 🔄 Help! My Function Is Recursive and I’m Calling It a Lot!
 ```kotlin
 fun factorial(n: Int): Long =
     if (n == 0) 1L
@@ -39,10 +39,10 @@ true
 Non-memoized time: 1.483682300s
 Memoized time: 10.784501ms
 ```
-This example may be contrived (who's out there regularly summing the first 40 thousand factorials?), but
-it still demonstrates a 99% decrease in running time (on my machine, at least) just from adding an annotation. :)
+This example may be contrived (who's out there regularly summing the first 40 thousand factorials?), but it illustrates 
+how the plugin works.
 
-### How Does It Work?
+### 🔍 How Does It Work?
 
 Internally, what's happening is that `factorialMemoized` is getting compiled to the equivalent of this code 👇
 ```kotlin

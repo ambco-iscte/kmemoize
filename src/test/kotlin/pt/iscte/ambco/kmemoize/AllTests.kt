@@ -22,9 +22,3 @@ import java.io.File
     TestCheckPureFunctionVisitor::class
 )
 class AllTests
-
-internal val ANNOTATION_SOURCE: SourceFile
-    get() {
-        val source = File("kmemoize.api/src/main/kotlin/pt/iscte/ambco/kmemoize/api/Memoize.kt")
-        return SourceFile.new(source.name, source.readText())
-    }
