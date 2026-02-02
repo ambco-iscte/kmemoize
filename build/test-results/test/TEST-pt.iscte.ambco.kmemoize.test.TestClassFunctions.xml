@@ -1,0 +1,312 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="pt.iscte.ambco.kmemoize.test.TestClassFunctions" tests="4" skipped="0" failures="0" errors="0" timestamp="2026-02-02T19:09:57.107Z" hostname="LAPTOP-AMBCO" time="2.727">
+  <properties/>
+  <testcase name="testTwoParametersSupertypeAny()" classname="pt.iscte.ambco.kmemoize.test.TestClassFunctions" time="1.25"/>
+  <testcase name="testOneParameter()" classname="pt.iscte.ambco.kmemoize.test.TestClassFunctions" time="0.578"/>
+  <testcase name="testTwoParametersCommonSupertype()" classname="pt.iscte.ambco.kmemoize.test.TestClassFunctions" time="0.49"/>
+  <testcase name="testTwoParametersSameType()" classname="pt.iscte.ambco.kmemoize.test.TestClassFunctions" time="0.407"/>
+  <system-out><![CDATA[w: // MODULE: <main>
+// FILE: Kotlin.kt
+// path: C:/Users/ASUS/AppData/Local/Temp/Kotlin-Compilation877937116207996826/sources/Kotlin.kt
+
+class Kotlin {
+  constructor() /* primary */ {
+    super/*Any*/()
+    /* <init>() */
+
+  }
+
+  fun contains(list: List<Int>, element: Int): Boolean {
+    return list.contains(element = element)
+  }
+
+  @Memoize
+  fun containsMemoized(list: List<Int>, element: Int): Boolean {
+    when {
+      <this>.#containsMemoized841193958Memory.containsKey(key = listOf<Any>(elements = [list, element])).not() -> { // BLOCK
+        <this>.#containsMemoized841193958Memory.put(key = listOf<Any>(elements = [list, element]), value = list.contains(element = element))
+      }
+    }
+    return CHECK_NOT_NULL<Boolean>(arg0 = <this>.#containsMemoized841193958Memory.get(key = listOf<Any>(elements = [list, element])))
+  }
+
+  /* fake */ override operator fun equals(other: Any?): Boolean
+
+  /* fake */ override fun hashCode(): Int
+
+  /* fake */ override fun toString(): String
+
+  private /* final field */ val containsMemoized841193958Memory: MutableMap<List<Any>, Boolean> = mutableMapOf<List<Any>, Boolean>()
+}
+
+// FILE: Memoize.kt
+// path: C:/Users/ASUS/AppData/Local/Temp/Kotlin-Compilation877937116207996826/sources/Memoize.kt
+package pt.iscte.ambco.kmemoize.api
+
+@Retention(value = AnnotationRetention.RUNTIME)
+@Target(allowedTargets = [AnnotationTarget.FUNCTION])
+open annotation class Memoize : Annotation {
+  constructor() /* primary */ {
+    super/*Any*/()
+    /* <init>() */
+
+  }
+
+  /* fake */ override operator fun equals(other: Any?): Boolean
+
+  /* fake */ override fun hashCode(): Int
+
+  /* fake */ override fun toString(): String
+
+}
+
+@Retention(value = AnnotationRetention.RUNTIME)
+@Target(allowedTargets = [AnnotationTarget.FUNCTION])
+@RequiresOptIn(message = "Forcibly memoizing impure functions may lead to unintended behaviour.")
+open annotation class UnsafeMemoize : Annotation {
+  constructor() /* primary */ {
+    super/*Any*/()
+    /* <init>() */
+
+  }
+
+  /* fake */ override operator fun equals(other: Any?): Boolean
+
+  /* fake */ override fun hashCode(): Int
+
+  /* fake */ override fun toString(): String
+
+}
+
+
+w: // MODULE: <main>
+// FILE: Kotlin.kt
+// path: C:/Users/ASUS/AppData/Local/Temp/Kotlin-Compilation5972793155509860096/sources/Kotlin.kt
+
+class Kotlin {
+  constructor() /* primary */ {
+    super/*Any*/()
+    /* <init>() */
+
+  }
+
+  fun factorial(n: Int): Long {
+    return when {
+      EQEQ(arg0 = n, arg1 = 0) -> 1L
+      else -> n.times(other = <this>.factorial(n = n.minus(other = 1)))
+    }
+  }
+
+  @Memoize
+  fun factorialMemoized(n: Int): Long {
+    when {
+      <this>.#factorialMemoized980555274Memory.containsKey(key = n).not() -> { // BLOCK
+        <this>.#factorialMemoized980555274Memory.put(key = n, value = when {
+          EQEQ(arg0 = n, arg1 = 0) -> 1L
+          else -> n.times(other = <this>.factorialMemoized(n = n.minus(other = 1)))
+        })
+      }
+    }
+    return CHECK_NOT_NULL<Long>(arg0 = <this>.#factorialMemoized980555274Memory.get(key = n))
+  }
+
+  /* fake */ override operator fun equals(other: Any?): Boolean
+
+  /* fake */ override fun hashCode(): Int
+
+  /* fake */ override fun toString(): String
+
+  private /* final field */ val factorialMemoized980555274Memory: MutableMap<Int, Long> = mutableMapOf<Int, Long>()
+}
+
+// FILE: Memoize.kt
+// path: C:/Users/ASUS/AppData/Local/Temp/Kotlin-Compilation5972793155509860096/sources/Memoize.kt
+package pt.iscte.ambco.kmemoize.api
+
+@Retention(value = AnnotationRetention.RUNTIME)
+@Target(allowedTargets = [AnnotationTarget.FUNCTION])
+open annotation class Memoize : Annotation {
+  constructor() /* primary */ {
+    super/*Any*/()
+    /* <init>() */
+
+  }
+
+  /* fake */ override operator fun equals(other: Any?): Boolean
+
+  /* fake */ override fun hashCode(): Int
+
+  /* fake */ override fun toString(): String
+
+}
+
+@Retention(value = AnnotationRetention.RUNTIME)
+@Target(allowedTargets = [AnnotationTarget.FUNCTION])
+@RequiresOptIn(message = "Forcibly memoizing impure functions may lead to unintended behaviour.")
+open annotation class UnsafeMemoize : Annotation {
+  constructor() /* primary */ {
+    super/*Any*/()
+    /* <init>() */
+
+  }
+
+  /* fake */ override operator fun equals(other: Any?): Boolean
+
+  /* fake */ override fun hashCode(): Int
+
+  /* fake */ override fun toString(): String
+
+}
+
+
+w: // MODULE: <main>
+// FILE: Kotlin.kt
+// path: C:/Users/ASUS/AppData/Local/Temp/Kotlin-Compilation5446431859755264419/sources/Kotlin.kt
+
+class Kotlin {
+  constructor() /* primary */ {
+    super/*Any*/()
+    /* <init>() */
+
+  }
+
+  fun product(a: Int, b: Double): Double {
+    return a.times(other = b)
+  }
+
+  @Memoize
+  fun productMemoized(a: Int, b: Double): Double {
+    when {
+      <this>.#productMemoized489163691Memory.containsKey(key = listOf<Number>(elements = [a, b])).not() -> { // BLOCK
+        <this>.#productMemoized489163691Memory.put(key = listOf<Number>(elements = [a, b]), value = a.times(other = b))
+      }
+    }
+    return CHECK_NOT_NULL<Double>(arg0 = <this>.#productMemoized489163691Memory.get(key = listOf<Number>(elements = [a, b])))
+  }
+
+  /* fake */ override operator fun equals(other: Any?): Boolean
+
+  /* fake */ override fun hashCode(): Int
+
+  /* fake */ override fun toString(): String
+
+  private /* final field */ val productMemoized489163691Memory: MutableMap<List<Number>, Double> = mutableMapOf<List<Number>, Double>()
+}
+
+// FILE: Memoize.kt
+// path: C:/Users/ASUS/AppData/Local/Temp/Kotlin-Compilation5446431859755264419/sources/Memoize.kt
+package pt.iscte.ambco.kmemoize.api
+
+@Retention(value = AnnotationRetention.RUNTIME)
+@Target(allowedTargets = [AnnotationTarget.FUNCTION])
+open annotation class Memoize : Annotation {
+  constructor() /* primary */ {
+    super/*Any*/()
+    /* <init>() */
+
+  }
+
+  /* fake */ override operator fun equals(other: Any?): Boolean
+
+  /* fake */ override fun hashCode(): Int
+
+  /* fake */ override fun toString(): String
+
+}
+
+@Retention(value = AnnotationRetention.RUNTIME)
+@Target(allowedTargets = [AnnotationTarget.FUNCTION])
+@RequiresOptIn(message = "Forcibly memoizing impure functions may lead to unintended behaviour.")
+open annotation class UnsafeMemoize : Annotation {
+  constructor() /* primary */ {
+    super/*Any*/()
+    /* <init>() */
+
+  }
+
+  /* fake */ override operator fun equals(other: Any?): Boolean
+
+  /* fake */ override fun hashCode(): Int
+
+  /* fake */ override fun toString(): String
+
+}
+
+
+w: // MODULE: <main>
+// FILE: Kotlin.kt
+// path: C:/Users/ASUS/AppData/Local/Temp/Kotlin-Compilation2425340160163936421/sources/Kotlin.kt
+
+class Kotlin {
+  constructor() /* primary */ {
+    super/*Any*/()
+    /* <init>() */
+
+  }
+
+  fun product(a: Int, b: Int): Int {
+    return a.times(other = b)
+  }
+
+  @Memoize
+  fun productMemoized(a: Int, b: Int): Int {
+    when {
+      <this>.#productMemoized510160290Memory.containsKey(key = listOf<Int>(elements = [a, b])).not() -> { // BLOCK
+        <this>.#productMemoized510160290Memory.put(key = listOf<Int>(elements = [a, b]), value = a.times(other = b))
+      }
+    }
+    return CHECK_NOT_NULL<Int>(arg0 = <this>.#productMemoized510160290Memory.get(key = listOf<Int>(elements = [a, b])))
+  }
+
+  /* fake */ override operator fun equals(other: Any?): Boolean
+
+  /* fake */ override fun hashCode(): Int
+
+  /* fake */ override fun toString(): String
+
+  private /* final field */ val productMemoized510160290Memory: MutableMap<List<Int>, Int> = mutableMapOf<List<Int>, Int>()
+}
+
+// FILE: Memoize.kt
+// path: C:/Users/ASUS/AppData/Local/Temp/Kotlin-Compilation2425340160163936421/sources/Memoize.kt
+package pt.iscte.ambco.kmemoize.api
+
+@Retention(value = AnnotationRetention.RUNTIME)
+@Target(allowedTargets = [AnnotationTarget.FUNCTION])
+open annotation class Memoize : Annotation {
+  constructor() /* primary */ {
+    super/*Any*/()
+    /* <init>() */
+
+  }
+
+  /* fake */ override operator fun equals(other: Any?): Boolean
+
+  /* fake */ override fun hashCode(): Int
+
+  /* fake */ override fun toString(): String
+
+}
+
+@Retention(value = AnnotationRetention.RUNTIME)
+@Target(allowedTargets = [AnnotationTarget.FUNCTION])
+@RequiresOptIn(message = "Forcibly memoizing impure functions may lead to unintended behaviour.")
+open annotation class UnsafeMemoize : Annotation {
+  constructor() /* primary */ {
+    super/*Any*/()
+    /* <init>() */
+
+  }
+
+  /* fake */ override operator fun equals(other: Any?): Boolean
+
+  /* fake */ override fun hashCode(): Int
+
+  /* fake */ override fun toString(): String
+
+}
+
+
+]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>
