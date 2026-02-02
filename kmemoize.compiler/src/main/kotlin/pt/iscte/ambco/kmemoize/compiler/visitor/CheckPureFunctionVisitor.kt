@@ -144,6 +144,8 @@ data class CheckPureFunctionVisitor(
         )
     )).mapNotNull { it.owner as? IrDeclaration }
 
+    private val visited = mutableMapOf<IrDeclaration, Boolean>()
+
     private fun isLocalOrFinal(declaration: IrDeclaration): Boolean =
         declaration.declaredWithin(function) || when (declaration) {
             is IrField -> declaration.isFinal
@@ -201,30 +203,42 @@ data class CheckPureFunctionVisitor(
     // CHECK FOR KNOWN IMPURE BUILT-INS
     // --------------------------------
 
-    override fun visitFunction(declaration: IrFunction, data: Boolean): Boolean =
-        if (declaration.isBuiltInOperator() || declaration.hasAnnotation(UnsafeMemoize::class))
-            true
-        else if (declaration in knownImpureDeclarations)
-            false
-        else
-            declaration.parameters.all { it.accept(this, data) } &&
-            declaration.body?.accept(this, data) ?: true
+    override fun visitFunction(declaration: IrFunction, data: Boolean): Boolean {
+        if (declaration !in visited) {
+            visited[declaration] = if (declaration.isBuiltInOperator())
+                true
+            else if (declaration in knownImpureDeclarations)
+                false
+            else
+                declaration.parameters.all { it.accept(this, data) } &&
+                declaration.body?.accept(this, data) ?: true
+        }
+        return visited[declaration]!!
+    }
 
-    override fun visitSimpleFunction(declaration: IrSimpleFunction, data: Boolean): Boolean =
-        if (declaration.isBuiltInOperator() || declaration.hasAnnotation(UnsafeMemoize::class))
-            true
-        else if (declaration in knownImpureDeclarations)
-            false
-        else
-            declaration.parameters.all { it.accept(this, data) } &&
-            declaration.body?.accept(this, data) ?: true
+    override fun visitSimpleFunction(declaration: IrSimpleFunction, data: Boolean): Boolean {
+        if (declaration !in visited) {
+            visited[declaration] = if (declaration.isBuiltInOperator())
+                true
+            else if (declaration in knownImpureDeclarations)
+                false
+            else
+                declaration.parameters.all { it.accept(this, data) } &&
+                declaration.body?.accept(this, data) ?: true
+        }
+        return visited[declaration]!!
+    }
 
-    override fun visitClass(declaration: IrClass, data: Boolean): Boolean =
-        if (declaration in knownImpureDeclarations)
-            false
-        else
-            declaration.declarations.all { it.accept(this, data) } &&
-            declaration.superTypes.all { it.classOrNull?.owner?.accept(this, data) ?: true }
+    override fun visitClass(declaration: IrClass, data: Boolean): Boolean {
+        if (declaration !in visited) {
+            visited[declaration] = if (declaration in knownImpureDeclarations)
+                false
+            else
+                declaration.declarations.all { it.accept(this, data) } &&
+                declaration.superTypes.all { it.classOrNull?.owner?.accept(this, data) ?: true }
+        }
+        return visited[declaration]!!
+    }
 
     // --------------------------------
     // TRAVERSE IR TREE RECURSIVELY

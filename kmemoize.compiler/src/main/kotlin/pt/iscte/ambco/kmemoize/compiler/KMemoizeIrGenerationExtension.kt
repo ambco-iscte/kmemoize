@@ -5,7 +5,7 @@ import org.jetbrains.kotlin.backend.common.extensions.IrPluginContext
 import org.jetbrains.kotlin.backend.common.toLogger
 import org.jetbrains.kotlin.cli.common.messages.MessageCollector
 import org.jetbrains.kotlin.ir.declarations.*
-import org.jetbrains.kotlin.ir.util.*
+import org.jetbrains.kotlin.ir.util.dumpKotlinLike
 import pt.iscte.ambco.kmemoize.compiler.visitor.FunctionMemoizationTransformer
 
 class KMemoizeIrGenerationExtension(

@@ -5,7 +5,7 @@ plugins {
     kotlin("jvm") version "2.2.0"
 }
 
-private val _version = "0.3.4"
+private val _version = "0.4.0"
 
 group = "pt.iscte.ambco"
 version = _version
@@ -43,7 +43,13 @@ dependencies {
 
 tasks.test {
     useJUnitPlatform()
+    reports.junitXml.required = true
 }
+
+tasks.named<Test>("test") {
+    reports.junitXml.required = true
+}
+
 kotlin {
     jvmToolchain(21)
 }

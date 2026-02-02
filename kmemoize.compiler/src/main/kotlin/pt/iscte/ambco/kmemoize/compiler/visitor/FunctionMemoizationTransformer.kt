@@ -5,6 +5,7 @@ import org.jetbrains.kotlin.backend.common.IrElementTransformerVoidWithContext
 import org.jetbrains.kotlin.backend.common.extensions.IrPluginContext
 import org.jetbrains.kotlin.backend.common.lower.DeclarationIrBuilder
 import org.jetbrains.kotlin.backend.common.lower.irNot
+import org.jetbrains.kotlin.backend.jvm.ir.upperBound
 import org.jetbrains.kotlin.descriptors.DescriptorVisibilities
 import org.jetbrains.kotlin.ir.IrStatement
 import org.jetbrains.kotlin.ir.builders.declarations.addField
@@ -27,18 +28,24 @@ import org.jetbrains.kotlin.ir.declarations.IrPackageFragment
 import org.jetbrains.kotlin.ir.declarations.IrSimpleFunction
 import org.jetbrains.kotlin.ir.expressions.IrExpression
 import org.jetbrains.kotlin.ir.expressions.IrReturn
+import org.jetbrains.kotlin.ir.symbols.IrTypeParameterSymbol
 import org.jetbrains.kotlin.ir.symbols.UnsafeDuringIrConstructionAPI
 import org.jetbrains.kotlin.ir.types.IrType
 import org.jetbrains.kotlin.ir.types.classFqName
+import org.jetbrains.kotlin.ir.types.classifierOrNull
 import org.jetbrains.kotlin.ir.types.isNothing
 import org.jetbrains.kotlin.ir.types.isNullableNothing
 import org.jetbrains.kotlin.ir.types.isUnit
 import org.jetbrains.kotlin.ir.util.addChild
+import org.jetbrains.kotlin.ir.util.defaultType
+import org.jetbrains.kotlin.ir.util.eraseTypeParameters
+import org.jetbrains.kotlin.ir.util.erasedUpperBound
 import org.jetbrains.kotlin.ir.util.getSimpleFunction
 import org.jetbrains.kotlin.ir.util.isLocal
 import org.jetbrains.kotlin.ir.util.isObject
 import org.jetbrains.kotlin.ir.util.isStatic
 import org.jetbrains.kotlin.ir.util.isTopLevel
+import org.jetbrains.kotlin.ir.util.isTypeParameter
 import org.jetbrains.kotlin.ir.util.isVararg
 import org.jetbrains.kotlin.ir.util.kotlinFqName
 import org.jetbrains.kotlin.ir.util.statements
@@ -125,7 +132,7 @@ internal class FunctionMemoizationTransformer(
             origin = GeneratedForMemoization
         }.apply {
             initializer = with(DeclarationIrBuilder(context, function.symbol)) {
-                irExprBody(irGetMutableMapOf(memoryKeyType, function.returnType))
+                irExprBody(irGetMutableMapOf(memoryKeyType, function.returnType.eraseTypeParameters()))
             }
         }
 
@@ -151,9 +158,10 @@ internal class FunctionMemoizationTransformer(
             }
 
             // ArgumentsType = type of function value arguments, if all the same type, closest supertype otherwise
-            val parameterTypes = declaration.getValueParameters().map { it.type }
+            val parameterTypes = declaration.getValueParameters().map { it.type.eraseTypeParameters() }
             val argumentsType =
-                parameterTypes.toSet().singleOrNull() ?: context.findClosestCommonSupertype(parameterTypes)
+                parameterTypes.toSet().singleOrNull() ?:
+                context.findClosestCommonSupertype(parameterTypes)
 
             // List<ArgumentsType> OR SingleArgumentType (small optimization if function takes a single argument)
             val memoryKeyType = parameterTypes.singleOrNull() ?: listOfType(argumentsType)
@@ -161,7 +169,7 @@ internal class FunctionMemoizationTransformer(
             // MutableMap<List<ArgumentsType>, FunctionReturnType>
             val mapOfFunctionArgumentsToReturnValueType = context.irBuiltIns.mutableMapClass.typeWithArguments(
                 memoryKeyType,
-                declaration.returnType
+                declaration.returnType.eraseTypeParameters()
             )
 
             transformer.isAccessible = true
@@ -201,10 +209,12 @@ internal class FunctionMemoizationTransformer(
             else
                 irGet(function.getValueParameters().first())
 
+        val receiver = if (memory.isStatic) null else function.dispatchReceiverParameter?.let { irGet(it) }
+
         // isMemoized = memory.containsKey(functionArguments)
         val isMemoized =
             irCallBuilder(irMapContainsKey).
-            withReceiver(irGetField(null, memory)).
+            withReceiver(irGetField(receiver, memory)).
             withArguments(memoryArgumentsKey).
             build()
 
@@ -223,7 +233,7 @@ internal class FunctionMemoizationTransformer(
                         if (expression.returnTargetSymbol != function.symbol)
                             return super.visitReturn(expression)
                         return irCallBuilder(irMapPut).
-                        withReceiver(irGetField(null, memory)).
+                        withReceiver(irGetField(receiver, memory)).
                         withArguments(memoryArgumentsKey, expression.value).
                         build()
                     }
@@ -233,7 +243,7 @@ internal class FunctionMemoizationTransformer(
 
         // memoizedValue = memory.get(functionArguments)
         val memoizedValue = irCallBuilder(irMapGet).
-        withReceiver(irGetField(null, memory)).
+        withReceiver(irGetField(receiver, memory)).
         withArguments(memoryArgumentsKey).
         build().apply {
             type = function.returnType
@@ -262,10 +272,12 @@ internal class FunctionMemoizationTransformer(
             return
         }
 
+        val backing = getMemoizationField(function, memoryKeyType, mapOfListOfArgumentsToReturnValueType, function.isStatic)
         val memory = klass.addField {
-            val backing = getMemoizationField(function, memoryKeyType, mapOfListOfArgumentsToReturnValueType, function.isStatic)
             name = backing.name
             updateFrom(backing)
+        }.apply {
+            initializer = backing.initializer
         }
 
         memoize(function, memory, memoryKeyType, argumentsType)

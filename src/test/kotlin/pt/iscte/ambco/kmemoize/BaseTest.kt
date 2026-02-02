@@ -7,6 +7,7 @@ import org.intellij.lang.annotations.Language
 import org.jetbrains.kotlin.compiler.plugin.ExperimentalCompilerApi
 import pt.iscte.ambco.kmemoize.compiler.KMemoizeComponentRegistrar
 import java.io.File
+import kotlin.test.assertEquals
 
 @OptIn(ExperimentalCompilerApi::class)
 open class BaseTest {
@@ -26,4 +27,9 @@ open class BaseTest {
             inheritClassPath = true
             messageOutputStream = System.out
         }.compile()
+
+    protected fun <T> assertEqualsTwice(expected: T, actual: T): Unit {
+        assertEquals(expected, actual)
+        assertEquals(expected, actual)
+    }
 }
