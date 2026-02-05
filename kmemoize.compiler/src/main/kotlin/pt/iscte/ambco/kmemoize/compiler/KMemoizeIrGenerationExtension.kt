@@ -17,6 +17,6 @@ class KMemoizeIrGenerationExtension(
     ) {
         val logger = messageCollector.toLogger()
         moduleFragment.transform(FunctionMemoizationTransformer(pluginContext, logger), null)
-        logger.strongWarning(moduleFragment.dumpKotlinLike())
+        // logger.strongWarning(moduleFragment.dumpKotlinLike())
     }
 }

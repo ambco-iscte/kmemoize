@@ -5,16 +5,16 @@ plugins {
     kotlin("jvm") version "2.2.0"
 }
 
-private val _version = "0.4.0"
+private val _version = "0.4.2"
 
-group = "pt.iscte.ambco"
+group = "io.github.ambco-iscte"
 version = _version
 
 allprojects {
     apply(plugin = "org.jetbrains.kotlin.jvm")
     apply(plugin = "org.jetbrains.kotlin.kapt")
 
-    group = "pt.iscte.ambco"
+    group = "io.github.ambco-iscte"
     version = _version
 
     repositories {

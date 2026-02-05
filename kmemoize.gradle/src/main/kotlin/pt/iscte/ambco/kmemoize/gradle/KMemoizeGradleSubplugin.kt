@@ -8,8 +8,7 @@ import org.jetbrains.kotlin.gradle.plugin.*
 class KMemoizeGradleSubplugin: KotlinCompilerPluginSupportPlugin {
 
     companion object {
-        const val GROUP = "pt.iscte.ambco"
-        const val ARTIFACT = "kmemoize-compiler-plugin"
+        const val VERSION = "0.4.2"
     }
 
     override fun isApplicable(kotlinCompilation: KotlinCompilation<*>): Boolean = true
@@ -20,7 +19,7 @@ class KMemoizeGradleSubplugin: KotlinCompilerPluginSupportPlugin {
         kotlinCompilation.target.project.provider { emptyList() }
 
     override fun getPluginArtifact(): SubpluginArtifact =
-        SubpluginArtifact(GROUP, ARTIFACT)
+        SubpluginArtifact("io.github.ambco-iscte", "kmemoize.compiler", VERSION)
 
-    override fun getCompilerPluginId() = "pt.iscte.ambco.kmemoize"
+    override fun getCompilerPluginId() = "io.github.ambco-iscte.kmemoize"
 }

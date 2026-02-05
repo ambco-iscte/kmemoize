@@ -14,7 +14,7 @@ import org.jetbrains.kotlin.config.CompilerConfiguration
 class KMemoizeComponentRegistrar: CompilerPluginRegistrar() {
 
     companion object {
-        const val PLUGIN_ID = "pt.iscte.ambco.kmemoize"
+        const val PLUGIN_ID = "io.github.ambco-iscte.kmemoize"
     }
 
     override val supportsK2: Boolean

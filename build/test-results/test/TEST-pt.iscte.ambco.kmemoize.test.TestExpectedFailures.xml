@@ -1,233 +1,24 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuite name="pt.iscte.ambco.kmemoize.test.TestExpectedFailures" tests="4" skipped="0" failures="0" errors="0" timestamp="2026-02-02T19:09:49.481Z" hostname="LAPTOP-AMBCO" time="7.619">
+<testsuite name="pt.iscte.ambco.kmemoize.test.TestExpectedFailures" tests="8" skipped="0" failures="0" errors="0" timestamp="2026-02-05T19:02:42.493Z" hostname="LAPTOP-AMBCO" time="15.454">
   <properties/>
-  <testcase name="testWithoutValueParameters()" classname="pt.iscte.ambco.kmemoize.test.TestExpectedFailures" time="5.996"/>
-  <testcase name="testWithUnsupportedReturnType()" classname="pt.iscte.ambco.kmemoize.test.TestExpectedFailures" time="0.592"/>
-  <testcase name="testWithoutBody()" classname="pt.iscte.ambco.kmemoize.test.TestExpectedFailures" time="0.378"/>
-  <testcase name="testNotPure()" classname="pt.iscte.ambco.kmemoize.test.TestExpectedFailures" time="0.649"/>
+  <testcase name="testWithoutValueParameters()" classname="pt.iscte.ambco.kmemoize.test.TestExpectedFailures" time="5.291"/>
+  <testcase name="testWithUnsupportedReturnType()" classname="pt.iscte.ambco.kmemoize.test.TestExpectedFailures" time="0.49"/>
+  <testcase name="testWithoutBody()" classname="pt.iscte.ambco.kmemoize.test.TestExpectedFailures" time="0.316"/>
+  <testcase name="testNotPure()" classname="pt.iscte.ambco.kmemoize.test.TestExpectedFailures" time="0.566"/>
+  <testcase name="testWithoutValueParameters()" classname="pt.iscte.ambco.kmemoize.test.TestExpectedFailures" time="0.218"/>
+  <testcase name="testWithUnsupportedReturnType()" classname="pt.iscte.ambco.kmemoize.test.TestExpectedFailures" time="0.166"/>
+  <testcase name="testWithoutBody()" classname="pt.iscte.ambco.kmemoize.test.TestExpectedFailures" time="0.143"/>
+  <testcase name="testNotPure()" classname="pt.iscte.ambco.kmemoize.test.TestExpectedFailures" time="0.195"/>
   <system-out><![CDATA[e: Cannot @Memoize function without value parameters: foo
-w: // MODULE: <main>
-// FILE: Kotlin.kt
-// path: C:/Users/ASUS/AppData/Local/Temp/Kotlin-Compilation2638159749170001773/sources/Kotlin.kt
-
-@Memoize
-fun foo(): Int {
-  return 42
-}
-
-// FILE: Memoize.kt
-// path: C:/Users/ASUS/AppData/Local/Temp/Kotlin-Compilation2638159749170001773/sources/Memoize.kt
-package pt.iscte.ambco.kmemoize.api
-
-@Retention(value = AnnotationRetention.RUNTIME)
-@Target(allowedTargets = [AnnotationTarget.FUNCTION])
-open annotation class Memoize : Annotation {
-  constructor() /* primary */ {
-    super/*Any*/()
-    /* <init>() */
-
-  }
-
-  /* fake */ override operator fun equals(other: Any?): Boolean
-
-  /* fake */ override fun hashCode(): Int
-
-  /* fake */ override fun toString(): String
-
-}
-
-@Retention(value = AnnotationRetention.RUNTIME)
-@Target(allowedTargets = [AnnotationTarget.FUNCTION])
-@RequiresOptIn(message = "Forcibly memoizing impure functions may lead to unintended behaviour.")
-open annotation class UnsafeMemoize : Annotation {
-  constructor() /* primary */ {
-    super/*Any*/()
-    /* <init>() */
-
-  }
-
-  /* fake */ override operator fun equals(other: Any?): Boolean
-
-  /* fake */ override fun hashCode(): Int
-
-  /* fake */ override fun toString(): String
-
-}
-
-
 e: Cannot @Memoize function with return type kotlin.Unit: foo
-w: // MODULE: <main>
-// FILE: Kotlin.kt
-// path: C:/Users/ASUS/AppData/Local/Temp/Kotlin-Compilation4844511296065228106/sources/Kotlin.kt
-
-@Memoize
-fun foo(name: String) {
-  return println(message = "Hello, ".plus(other = name).plus(other = "!"))
-}
-
-// FILE: Memoize.kt
-// path: C:/Users/ASUS/AppData/Local/Temp/Kotlin-Compilation4844511296065228106/sources/Memoize.kt
-package pt.iscte.ambco.kmemoize.api
-
-@Retention(value = AnnotationRetention.RUNTIME)
-@Target(allowedTargets = [AnnotationTarget.FUNCTION])
-open annotation class Memoize : Annotation {
-  constructor() /* primary */ {
-    super/*Any*/()
-    /* <init>() */
-
-  }
-
-  /* fake */ override operator fun equals(other: Any?): Boolean
-
-  /* fake */ override fun hashCode(): Int
-
-  /* fake */ override fun toString(): String
-
-}
-
-@Retention(value = AnnotationRetention.RUNTIME)
-@Target(allowedTargets = [AnnotationTarget.FUNCTION])
-@RequiresOptIn(message = "Forcibly memoizing impure functions may lead to unintended behaviour.")
-open annotation class UnsafeMemoize : Annotation {
-  constructor() /* primary */ {
-    super/*Any*/()
-    /* <init>() */
-
-  }
-
-  /* fake */ override operator fun equals(other: Any?): Boolean
-
-  /* fake */ override fun hashCode(): Int
-
-  /* fake */ override fun toString(): String
-
-}
-
-
 e: Cannot @Memoize body-less function: Foo.bar
-w: // MODULE: <main>
-// FILE: Kotlin.kt
-// path: C:/Users/ASUS/AppData/Local/Temp/Kotlin-Compilation12438962044916160222/sources/Kotlin.kt
-
-interface Foo {
-  @Memoize
-  abstract fun bar(n: Int): Int
-
-  /* fake */ override operator fun equals(other: Any?): Boolean
-
-  /* fake */ override fun hashCode(): Int
-
-  /* fake */ override fun toString(): String
-
-}
-
-// FILE: Memoize.kt
-// path: C:/Users/ASUS/AppData/Local/Temp/Kotlin-Compilation12438962044916160222/sources/Memoize.kt
-package pt.iscte.ambco.kmemoize.api
-
-@Retention(value = AnnotationRetention.RUNTIME)
-@Target(allowedTargets = [AnnotationTarget.FUNCTION])
-open annotation class Memoize : Annotation {
-  constructor() /* primary */ {
-    super/*Any*/()
-    /* <init>() */
-
-  }
-
-  /* fake */ override operator fun equals(other: Any?): Boolean
-
-  /* fake */ override fun hashCode(): Int
-
-  /* fake */ override fun toString(): String
-
-}
-
-@Retention(value = AnnotationRetention.RUNTIME)
-@Target(allowedTargets = [AnnotationTarget.FUNCTION])
-@RequiresOptIn(message = "Forcibly memoizing impure functions may lead to unintended behaviour.")
-open annotation class UnsafeMemoize : Annotation {
-  constructor() /* primary */ {
-    super/*Any*/()
-    /* <init>() */
-
-  }
-
-  /* fake */ override operator fun equals(other: Any?): Boolean
-
-  /* fake */ override fun hashCode(): Int
-
-  /* fake */ override fun toString(): String
-
-}
-
-
 e: Cannot @Memoize impure function: foo
 e: Cannot @Memoize impure function: bar
-w: // MODULE: <main>
-// FILE: Kotlin.kt
-// path: C:/Users/ASUS/AppData/Local/Temp/Kotlin-Compilation12348999865142119901/sources/Kotlin.kt
-
-var x: Int
-  field = 42
-  get
-  set
-
-@Memoize
-fun foo(n: Int): Int {
-  { // BLOCK
-    val <unary>: Int = <get-x>()
-    <set-x>(<set-?> = <unary>.inc())
-    <unary>
-  } /*~> Unit */
-  return n.plus(other = <get-x>())
-}
-
-@Memoize
-fun bar(n: Int): Int {
-  return n.times(other = random()).toInt()
-}
-
-// FILE: Memoize.kt
-// path: C:/Users/ASUS/AppData/Local/Temp/Kotlin-Compilation12348999865142119901/sources/Memoize.kt
-package pt.iscte.ambco.kmemoize.api
-
-@Retention(value = AnnotationRetention.RUNTIME)
-@Target(allowedTargets = [AnnotationTarget.FUNCTION])
-open annotation class Memoize : Annotation {
-  constructor() /* primary */ {
-    super/*Any*/()
-    /* <init>() */
-
-  }
-
-  /* fake */ override operator fun equals(other: Any?): Boolean
-
-  /* fake */ override fun hashCode(): Int
-
-  /* fake */ override fun toString(): String
-
-}
-
-@Retention(value = AnnotationRetention.RUNTIME)
-@Target(allowedTargets = [AnnotationTarget.FUNCTION])
-@RequiresOptIn(message = "Forcibly memoizing impure functions may lead to unintended behaviour.")
-open annotation class UnsafeMemoize : Annotation {
-  constructor() /* primary */ {
-    super/*Any*/()
-    /* <init>() */
-
-  }
-
-  /* fake */ override operator fun equals(other: Any?): Boolean
-
-  /* fake */ override fun hashCode(): Int
-
-  /* fake */ override fun toString(): String
-
-}
-
-
+e: Cannot @Memoize function without value parameters: foo
+e: Cannot @Memoize function with return type kotlin.Unit: foo
+e: Cannot @Memoize body-less function: Foo.bar
+e: Cannot @Memoize impure function: foo
+e: Cannot @Memoize impure function: bar
 ]]></system-out>
   <system-err><![CDATA[]]></system-err>
 </testsuite>
